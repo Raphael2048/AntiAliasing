@@ -1,27 +1,13 @@
-﻿using System;
-using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
-using Random = UnityEngine.Random;
+﻿using UnityEngine;
 
-[ExecuteInEditMode, ImageEffectAllowedInSceneView]
+[ExecuteInEditMode]
 public class TAASimple : MonoBehaviour {
-	[Range(0.0312f, 0.0833f)]
-	public float contrastThreshold = 0.0312f;
-
-	[Range(0.063f, 0.333f)]
-	public float relativeThreshold = 0.063f;
-
 	public Shader taaShader;
-
 	private Material taaMaterial;
-
-	public Material Material
+	public Material material
 	{
 		get
-		{
+		{ 
 			if (taaMaterial == null)
 			{
 				if (taaShader == null) return null;
@@ -42,12 +28,13 @@ public class TAASimple : MonoBehaviour {
 			return m_Camera;
 		}
 	}
-	
-	private CommandBuffer m_CommandBuffer;
-	private RenderTexture m_LastFrame, m_ThisFrame, m_Depth;
-	private Matrix4x4 m_LastProj, m_LastView;
 	private int FrameCount = 0;
+	private Vector2 _Jitter;
+	bool m_ResetHistory = true;
 	
+	private RenderTexture[] m_HistoryTextures = new RenderTexture[2];
+
+	// private RenderTexture m_History;
 	//长度为8的Halton序列
 	private Vector2[] HaltonSequence = new Vector2[]
 	{
@@ -60,10 +47,12 @@ public class TAASimple : MonoBehaviour {
 		new Vector2(0.875f, 5.0f / 9),
 		new Vector2(0.0625f, 8.0f / 9),
 	};
+	
 
 	private void OnEnable()
 	{
-		Camera.main.depthTextureMode = DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
+		camera.depthTextureMode = DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
+		camera.useJitteredProjectionMatrixForTransparentRendering = true;
 	}
 
 	private void OnPreCull()
@@ -73,10 +62,12 @@ public class TAASimple : MonoBehaviour {
 		camera.nonJitteredProjectionMatrix = proj;
 		FrameCount++;
 		var Index = FrameCount % 8;
-		proj.m03 = (HaltonSequence[Index].x - 0.5f) / camera.pixelWidth;
-		proj.m13 = (HaltonSequence[Index].y - 0.5f) / camera.pixelHeight;
+		_Jitter = new Vector2(
+			(HaltonSequence[Index].x - 0.5f) / camera.pixelWidth,
+			(HaltonSequence[Index].y - 0.5f) / camera.pixelHeight);
+		proj.m02 += _Jitter.x * 2;
+		proj.m12 += _Jitter.y * 2;
 		camera.projectionMatrix = proj;
-
 	}
 
 	private void OnPostRender()
@@ -84,6 +75,44 @@ public class TAASimple : MonoBehaviour {
 		camera.ResetProjectionMatrix();
 	}
 
+	private void OnRenderImage(RenderTexture source, RenderTexture dest)
+	{
+		var historyRead = m_HistoryTextures[FrameCount % 2];
+		if (historyRead == null || historyRead.width != Screen.width || historyRead.height != Screen.height)
+		{
+			if(historyRead) RenderTexture.ReleaseTemporary(historyRead);
+			historyRead = RenderTexture.GetTemporary(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
+			m_HistoryTextures[FrameCount % 2] = historyRead;
+			m_ResetHistory = true;
+		}
+		var historyWrite = m_HistoryTextures[(FrameCount + 1) % 2];
+		if (historyWrite == null || historyWrite.width != Screen.width || historyWrite.height != Screen.height)
+		{
+			if(historyWrite) RenderTexture.ReleaseTemporary(historyWrite);
+			historyWrite = RenderTexture.GetTemporary(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
+			m_HistoryTextures[(FrameCount + 1) % 2] = historyWrite;
+		}
+		// if (m_History == null || m_History.width != dest.width || m_History.height != dest.height)
+		// {
+		// 	if (m_History)
+		// 	{
+		// 		RenderTexture.ReleaseTemporary(m_History);
+		// 	}
+		// 	m_History = RenderTexture.GetTemporary(dest.width, dest.height, 0, dest.format);
+		// }
+		
+		material.SetVector("_Jitter", _Jitter);
+		material.SetTexture("_HistoryTex", historyRead);
+		material.SetInt("_IgnoreHistory", m_ResetHistory ? 1 : 0);
+
+		Graphics.Blit(source, historyWrite, material, 0);
+		Graphics.Blit(historyWrite, dest);
+		m_ResetHistory = false;
+		// Graphics.Blit(source, dest);
+		// IgnoreHistory = 0;
+		// taaMaterial.SetTexture("_HistoryTex", m_History);
+
+	}
 	// private void OnPreRender()
  //    {
 	//     if (taaMaterial == null)
@@ -133,9 +162,9 @@ public class TAASimple : MonoBehaviour {
 	//     ++FrameCount;
  //    }
 
-    private void OnDestroy()
-    {
-	    if(Camera.current && m_CommandBuffer != null)
-			Camera.current.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, m_CommandBuffer);
-    }
+   //  private void OnDestroy()
+   //  {
+	  //   if(Camera.current && m_CommandBuffer != null)
+			// Camera.current.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, m_CommandBuffer);
+   //  }
 }
