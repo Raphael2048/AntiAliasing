@@ -133,10 +133,6 @@ Shader "TAA"
                     //跟随速度变化混合系数
                     float BlendFactor = saturate(0.05 + length(Motion) * 100);
                     return lerp(HistoryColor, Color, BlendFactor);
-                    
-                    // return float4(motion, 0, 1);
-                    
-                    return _MainTex.Sample(sampler_LinearClamp, uv);
                 }
                 #pragma vertex Vert
                 #pragma fragment Frag

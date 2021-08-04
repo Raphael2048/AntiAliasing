@@ -33,8 +33,7 @@ public class TAASimple : MonoBehaviour {
 	bool m_ResetHistory = true;
 	
 	private RenderTexture[] m_HistoryTextures = new RenderTexture[2];
-
-	// private RenderTexture m_History;
+	
 	//长度为8的Halton序列
 	private Vector2[] HaltonSequence = new Vector2[]
 	{
@@ -92,15 +91,7 @@ public class TAASimple : MonoBehaviour {
 			historyWrite = RenderTexture.GetTemporary(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
 			m_HistoryTextures[(FrameCount + 1) % 2] = historyWrite;
 		}
-		// if (m_History == null || m_History.width != dest.width || m_History.height != dest.height)
-		// {
-		// 	if (m_History)
-		// 	{
-		// 		RenderTexture.ReleaseTemporary(m_History);
-		// 	}
-		// 	m_History = RenderTexture.GetTemporary(dest.width, dest.height, 0, dest.format);
-		// }
-		
+
 		material.SetVector("_Jitter", _Jitter);
 		material.SetTexture("_HistoryTex", historyRead);
 		material.SetInt("_IgnoreHistory", m_ResetHistory ? 1 : 0);
@@ -108,63 +99,5 @@ public class TAASimple : MonoBehaviour {
 		Graphics.Blit(source, historyWrite, material, 0);
 		Graphics.Blit(historyWrite, dest);
 		m_ResetHistory = false;
-		// Graphics.Blit(source, dest);
-		// IgnoreHistory = 0;
-		// taaMaterial.SetTexture("_HistoryTex", m_History);
-
 	}
-	// private void OnPreRender()
- //    {
-	//     if (taaMaterial == null)
-	//     {
-	// 	    taaMaterial = new Material(taaShader);
-	// 	    taaMaterial.hideFlags = HideFlags.HideAndDontSave;
-	//     }
- //        if(m_CommandBuffer == null)
- //        {
-	// 		m_CommandBuffer = new CommandBuffer();
-	// 		m_CommandBuffer.name = "TAA";
-	// 		Camera.current.AddCommandBuffer(CameraEvent.AfterForwardOpaque, m_CommandBuffer);
-	// 	}
- //
- //        if (m_ThisFrame == null || m_ThisFrame.height != Screen.height || m_ThisFrame.width != Screen.width)
- //        {
-	//         if (m_ThisFrame) m_ThisFrame.Release();
-	//         if(m_Depth) m_Depth.Release();
-	//         m_ThisFrame = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGB111110Float);
-	//         m_ThisFrame.Create();
-	//         m_Depth = new RenderTexture(Screen.width, Screen.height, 32, RenderTextureFormat.Depth);
-	//         m_Depth.Create();
- //        }
- //
- //        var cam = Camera.current;
- //
-	// 	m_CommandBuffer.Clear();
-	// 	var renderers = GameObject.FindObjectsOfType<Renderer>();
- //
-	// 	var proj = cam.projectionMatrix;
-	// 	var Index = FrameCount % 8;
- //
-	// 	proj.m03 = (HaltonSequence[Index].x - 0.5f) / Screen.width;
-	// 	proj.m13 = (HaltonSequence[Index].y - 0.5f) / Screen.height;
-	// 	m_CommandBuffer.SetRenderTarget(m_ThisFrame, m_Depth);
-	// 	m_CommandBuffer.ClearRenderTarget(true, true, Color.black);
-	//     m_CommandBuffer.SetViewProjectionMatrices(cam.worldToCameraMatrix,  proj);
-	//     foreach (var r in renderers)
-	// 	{
-	// 		r.sharedMaterial.EnableKeyword("LIGHTPROBE_SH");
-	// 		m_CommandBuffer.DrawRenderer(r, r.sharedMaterial, 0, 0);
-	// 	}
-	//     
-	//     
-	//     m_CommandBuffer.Blit(m_ThisFrame, BuiltinRenderTextureType.CameraTarget, taaMaterial, 0);
-	//     m_CommandBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
-	//     ++FrameCount;
- //    }
-
-   //  private void OnDestroy()
-   //  {
-	  //   if(Camera.current && m_CommandBuffer != null)
-			// Camera.current.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, m_CommandBuffer);
-   //  }
 }
