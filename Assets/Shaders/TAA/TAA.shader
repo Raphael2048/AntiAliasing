@@ -85,6 +85,32 @@ Shader "TAA"
                     result = lerp(result, float3( 1.0,  1.0, neighborhood.w), COMPARE_DEPTH(neighborhood.w, result.z));
                     return (uv + result.xy * k);
                 }
+
+                float3 RGBToYCoCg( float3 RGB )
+                {
+	                float Y  = dot( RGB, float3(  1, 2,  1 ) );
+	                float Co = dot( RGB, float3(  2, 0, -2 ) );
+	                float Cg = dot( RGB, float3( -1, 2, -1 ) );
+	                
+	                float3 YCoCg = float3( Y, Co, Cg );
+	                return YCoCg;
+                }
+
+                float3 YCoCgToRGB( float3 YCoCg )
+                {
+	                float Y  = YCoCg.x * 0.25;
+	                float Co = YCoCg.y * 0.25;
+	                float Cg = YCoCg.z * 0.25;
+
+	                float R = Y + Co - Cg;
+	                float G = Y + Cg;
+	                float B = Y - Co - Cg;
+
+	                float3 RGB = float3( R, G, B );
+	                return RGB;
+                }
+
+            
                 float3 ClipHistory(float3 History, float3 BoxMin, float3 BoxMax)
                 {
                     float3 Filtered = (BoxMin + BoxMax) * 0.5f;
@@ -110,28 +136,38 @@ Shader "TAA"
                     {
                         return Color;
                     }
-                    float4 AABBMin, AABBMax;
-                    AABBMax = AABBMin = Color;
-
-                    for(int k = 0; k < 9; k++)
-                    {
-                        float4 C = _MainTex.Sample(sampler_PointClamp, uv, kOffsets3x3[k]);
-                        AABBMin = min(AABBMin, C);
-                        AABBMax = max(AABBMax, C);
-                    }
                      
                     //因为镜头的移动会导致物体被遮挡关系变化，这步的目的是选择出周围距离镜头最近的点
                     float2 closest = GetClosestFragment(i.texcoord);
                     
                     //得到在屏幕空间中，和上帧相比UV偏移的距离
                     float2 Motion = SAMPLE_TEXTURE2D(_CameraMotionVectorsTexture, sampler_LinearClamp, closest).xy;
-                    float4 HistoryColor = _HistoryTex.Sample(sampler_LinearClamp, i.texcoord - Motion);
-                    
-                    //根据AABB包围盒进行Clip计算:
-                    HistoryColor.rgb = ClipHistory(HistoryColor.rgb, AABBMin.rgb, AABBMax.rgb);
 
+                    float2 HistoryUV = i.texcoord - Motion;
+                    float4 HistoryColor = _HistoryTex.Sample(sampler_LinearClamp, HistoryUV);
+
+                    // 在 YCoCg色彩空间中进行Clip判断
+                    float3 AABBMin, AABBMax;
+                    AABBMax = AABBMin = RGBToYCoCg(Color);
+                    for(int k = 0; k < 9; k++)
+                    {
+                        float3 C = RGBToYCoCg(_MainTex.Sample(sampler_PointClamp, uv, kOffsets3x3[k]));
+                        AABBMin = min(AABBMin, C);
+                        AABBMax = max(AABBMax, C);
+                    }
+                    float3 HistoryYCoCg = RGBToYCoCg(HistoryColor);
+                    //根据AABB包围盒进行Clip计算:
+                    HistoryColor.rgb = YCoCgToRGB(ClipHistory(HistoryYCoCg, AABBMin, AABBMax));
+                    // Clamp计算
+                    // HistoryColor.rgb = YCoCgToRGB(clamp(HistoryYCoCg, AABBMin, AABBMax));
+                    
                     //跟随速度变化混合系数
-                    float BlendFactor = saturate(0.05 + length(Motion) * 100);
+                    float BlendFactor = saturate(0.05 + length(Motion) * 1000);
+
+                    if(HistoryUV.x < 0 || HistoryUV.y < 0 || HistoryUV.x > 1.0f || HistoryUV.y > 1.0f)
+                    {
+                        BlendFactor = 1.0f;
+                    }
                     return lerp(HistoryColor, Color, BlendFactor);
                 }
                 #pragma vertex Vert
