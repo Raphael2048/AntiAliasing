@@ -73,7 +73,7 @@ Shader "TAA"
                         SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_PointClamp, UnityStereoClamp(uv + float2(-k.x, k.y))),
                         SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_PointClamp, UnityStereoClamp(uv + k))
                     );
-                #if defined(UNITY_REVERSED_Z)
+                #if UNITY_REVERSED_Z
                     #define COMPARE_DEPTH(a, b) step(b, a)
                 #else
                     #define COMPARE_DEPTH(a, b) step(a, b)

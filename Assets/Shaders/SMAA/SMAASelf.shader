@@ -52,7 +52,6 @@ Shader "SMAASelf"
                     #define THRESHOLD 0.05f;
                     float2 uv = i.texcoord;
                     float2 size = _MainTex_TexelSize.xy;
-                    int2 pos = i.vertex.xy;
                     float IThis = Luminance(_MainTex.Sample(sampler_LinearClamp, uv));
                     float IL    = abs(Luminance(_MainTex.Sample(sampler_LinearClamp, uv + float2(-size.x, 0))) - IThis);
                     float IL2   = abs(Luminance(_MainTex.Sample(sampler_LinearClamp, uv + float2(-size.x * 2, 0))) - IThis);
